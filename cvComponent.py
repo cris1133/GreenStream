@@ -115,9 +115,9 @@ def testLines(i1, i2, i3):
 
 def startRealTime():
 	on = 1
-	gapsR = [0 for n in range(135)]
-	gapsG = [0 for n in range(135)]
-	counts = [0 for n in range(135)]
+	gapsR = [0 for n in range(164)]
+	gapsG = [0 for n in range(164)]
+	counts = [0 for n in range(164)]
 	r1 = None
 	r2 = None
 	while on==1:

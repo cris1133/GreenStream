@@ -34,9 +34,15 @@ def f5(seq, idfun=None):
 
 intersections = f5(pickle.load(open("intersections.p","rb")))
 img_urls = f5(pickle.load(open("images.p","rb")))
+intersections2 = []
+
+for intersection in intersections:
+	in1 = intersection[:intersection.find('@')-1]
+	in2 = intersection[intersection.find('@')+2:]
+	intersections2.append([in1, in2])
 
 ## "correct" pickles
-lightList = intersections
+lightList = intersections2
 print lightList
 def findNumb(str):
 	m = [str.rfind('0'),str.rfind('1'),str.rfind('2'),str.rfind('3'),str.rfind('4'),str.rfind('5'),str.rfind('6'),str.rfind('7'),str.rfind('8'),str.rfind('9')]
@@ -127,9 +133,7 @@ def testImages():
 	print "--->"
 	for img in range(len(i1s)):
 		intersection_name = lightList[img]
-		in1 = intersection_name[:intersection_name.find('@')-1]
-		in2 = intersection_name[intersection_name.find('@')+2:]
-		results.append([in1, in2,testLines(i1s[img], i2s[img], i3s[img])])
+		results.append([intersection_name[0], intersection_name[1],testLines(i1s[img], i2s[img], i3s[img])])
 	return results
 		
 def testLines(i1, i2, i3):
@@ -152,7 +156,6 @@ def testLines(i1, i2, i3):
 	if lines == []:
 		return "Insufficient Data"
 	lines.draw()
-	i3.show()
 	angles = [l.angle() for l in lines]
 	lengths = [int(l.length()) for l in lines]
 	if sum(lengths) == 0:
@@ -191,9 +194,11 @@ def startRealTime():
 		else:
 			r2 = testImages()
 			for item in range(len(r1)):
-				a= ncollection.find_one({'on':[r1[0],r1[1]]})
+				a = ncollection.find_one({'on':[r1[0],r1[1]]})
 				if a is None:
 					a= ncollection.find_one({'on':[r1[1],r1[0]]})
+				if a is None:
+					continue
 				if r1[item] != r2[item] and r1[item] != "Insufficient Data" and r2[item] != "Insufficient Data":
 					if r1[item] == "Red":
 						ncollection.update({'name':a['name']},{'$set':{'light':'green'}})

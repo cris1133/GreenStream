@@ -1,0 +1,78 @@
+from imposm.parser import OSMParser
+import matplotlib.pyplot as plt
+from pymongo import MongoClient
+
+
+# simple class that handles the parsed OSM data.
+class Streetlight(object):
+    def ways(self, ways):
+        client = MongoClient()
+        db = client.test_database
+        scollection = db.street_collection
+        ncollection = db.node_collection
+        db.scollection.remove({})
+        # callback method for ways 
+        for osmid, tags, refs in ways:
+            if 'highway' in tags and 'name' in tags:
+                post = scollection.find_one({'name':tags['name']})
+                if post is None:
+                    post = {'name' : tags['name'], 'refs':refs, 'oneWay':'n'}
+                    if 'oneWay' in tags:
+                      if tags['oneWay']== 'yes':
+                        post = {'name' : tags['name'], 'refs':refs, 'oneWay':'y'}
+                      else:
+                        post = {'name' : tags['name'], 'refs':refs, 'oneWay':'n'}
+                    scollection.insert(post)
+                else:
+                    ref = post['refs']
+                    ref += refs
+                    scollection.update({'name':post['name']}, {'$set':{'refs':ref}})
+                removed = []
+                for j in xrange(len(refs)):
+                    i = refs[j]
+                    node = ncollection.find_one({'name':i})
+                    if node is not None:
+                        n = tags['name']
+                        if n not in node["on"]:
+                            ls = node['on']
+                            ls.append(n)
+                            ncollection.update({'name':node['name']},{'$set':{'on':ls}})
+                        if n not in node['availableNodes']:
+                            ls = node['availableNodes']
+                            if j<len(refs)-1:
+                                ls.append(refs[j+1])
+                            if not post['oneWay']=='yes' and j>0:
+                                ls.append(refs[j-1])
+                            ncollection.update({'name':node['name']},{'$set':{'availableNodes':ls}})
+                    else:
+                        removed.append(i)
+                        j-=1
+                        scollection.update({'name':tags['name']},{'$set':{'refs':refs}})
+                for i in removed:
+                    refs.remove(i)
+                if len(removed)>0:
+                    scollection.update({'name':tags['name']},{'$set':{'refs':refs}})
+                    
+    def nodes(self, nodes):
+        client = MongoClient()
+        db = client.test_database
+        scollection = db.street_collection
+        ncollection = db.node_collection
+        db.ncollection.remove({})
+        # callback method for ways
+        for osmid, tags, refs in nodes:
+            if 'highway' in tags:
+                tag = tags['highway']
+                if tag=='stop':
+                    post = {"name": osmid, "light" : "na",'lastLight':0,'dg':0,'dr':0, "coor":refs,"on": [0], "availableNodes": [0] }
+                    ncollection.insert(post)
+                if tag== 'traffic_signals':
+                    post = {"name": osmid, "light" : "none",'lastLight':0,'dg':0,'dr':0, "coor":refs,"on" : [0], "availableNodes": [0] }
+                    ncollection.insert(post)
+                    # instantiate counter and parser and start parsing
+counter = Streetlight()
+c = OSMParser(concurrency=4, nodes_callback=counter.nodes)
+c.parse_xml_file('map')
+p = OSMParser(concurrency=4, ways_callback=counter.ways)
+p.parse_xml_file('map')
+print 'operation complete!'

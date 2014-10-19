@@ -1,33 +1,93 @@
 from SimpleCV import *
 from time import sleep
+import time
 import grequests
 import io
 from PIL import Image as Image2
 from socket import error as SocketError
 import random
+from pymongo import MongoClient
+client = MongoClient()
+db = client.test_database
+scollection = db.street_collection
+ncollection = db.node_collection
 ## Unpickle needed data
 ## Image(Image2.open(io.BytesIO(images[0].content))).show()
 ## from PIL import Image as Image2
 ## import io
 
 def f5(seq, idfun=None): 
-   # order preserving
-   if idfun is None:
-       def idfun(x): return x
-   seen = {}
-   result = []
-   for item in seq:
-       marker = idfun(item)
-       # in old Python versions:
-       # if seen.has_key(marker)
-       # but in new ones:
-       if marker in seen: continue
-       seen[marker] = 1
-       result.append(item)
-   return result
+	# order preserving
+	if idfun is None:
+		def idfun(x): return x
+	seen = {}
+	result = []
+	for item in seq:
+		marker = idfun(item)
+		# in old Python versions:
+		# if seen.has_key(marker)
+		# but in new ones:
+	if marker in seen: continue
+		seen[marker] = 1
+		result.append(item)
+	return result
 
 intersections = f5(pickle.load(open("intersections.p","rb")))
 img_urls = f5(pickle.load(open("images.p","rb")))
+
+## "correct" pickles
+lightList = intersections
+print lightList
+def findNumb(str):
+	m = [str.rfind('0'),str.rfind('1'),str.rfind('2'),str.rfind('3'),str.rfind('4'),str.rfind('5'),str.rfind('6'),str.rfind('7'),str.rfind('8'),str.rfind('9')]
+	print m
+	return m.index(max(m))
+def findAll(str):
+	return str.find("st") + str.find("th") + str.find("nd")
+def clean(stra):
+	lastNumb =findNumb(stra)
+	print lastNumb
+	lastIndex =stra.rfind(str(lastNumb))
+	print lastIndex
+	if lastIndex!=-1 and stra.find(" ")!=-1:
+		ls = stra.split(" ")
+		ret = ''
+		ret =ls[0]
+		if lastNumb==1:
+			ret+="st"
+		elif lastNumb==2:
+			ret+="nd"
+		elif lastNumb==3:
+			ret+="rd"
+		else:
+			ret+="th"
+		ret+=" " 
+		ret +=ls[1]
+	else:
+		return stra
+	return ret
+    
+for i in xrange(len(lightList)):
+	for j in xrange(len(lightList[0])):
+		lightList[i][j] = lightList[i][j].replace("Ave.", "Avenue")
+		lightList[i][j] = lightList[i][j].replace("Ave", "Avenue")
+		lightList[i][j] = lightList[i][j].replace("St.", "Street")
+		lightList[i][j] = lightList[i][j].replace("ST.", "Street")
+		lightList[i][j] = lightList[i][j].replace("St", "Street")
+		lightList[i][j] = lightList[i][j].replace("ST", "Street")
+		lightList[i][j] = lightList[i][j].replace("Pl.", "Place")
+		lightList[i][j] = lightList[i][j].replace("Pl", "Place")
+		lightList[i][j] = lightList[i][j].replace("N.", "North")
+		lightList[i][j] = lightList[i][j].replace("S.", "South")
+		lightList[i][j] = lightList[i][j].replace("E.", "East")
+		lightList[i][j] = lightList[i][j].replace("W.", "West")
+		lightList[i][j]=clean(lightList[i][j])
+
+# for i in xrange(len(lightList)):
+    # for j in xrange(len(lightList[0])):
+        # lightList[i][j] = clean(lightList[i][j])
+for i in xrange(len(lightList)):
+	print lightList[i]
 
 for url in range(len(img_urls)-1):
 	if img_urls[url] == u'http://207.251.86.238/cctv258.jpg':
@@ -66,7 +126,7 @@ def testImages():
 	i3s = getImages()
 	print "--->"
 	for img in range(len(i1s)):
-		intersection_name = intersections[img]
+		intersection_name = lightList[img]
 		in1 = intersection_name[:intersection_name.find('@')-1]
 		in2 = intersection_name[intersection_name.find('@')+2:]
 		results.append([in1, in2,testLines(i1s[img], i2s[img], i3s[img])])
@@ -112,31 +172,42 @@ def testLines(i1, i2, i3):
 	else:
 		return "Red"
 
+def calculateTimeGap(t, t2):
+	s1 = t-t2
+	s2 = (s1[0]*60) + s1[1]
+	return s2
+
 def startRealTime():
 	on = 1
-	gapsR = [0 for n in range(164)]
-	gapsG = [0 for n in range(164)]
-	counts = [0 for n in range(164)]
+	timesR = [0 for n in range(164)]
+	timesG = [0 for n in range(164)]
 	r1 = None
 	r2 = None
+	curTime = 0
 	while on==1:
 		sleep(5)
-		counts = [n+15 for n in counts]
 		if r1 == None:
 			r1 = testImages()
 		else:
 			r2 = testImages()
 			for item in range(len(r1)):
+				a= ncollection.find_one({'on':[r1[0],r1[1]]})
+				if a is None:
+					a= ncollection.find_one({'on':[r1[1],r1[0]]})
 				if r1[item] != r2[item] and r1[item] != "Insufficient Data" and r2[item] != "Insufficient Data":
 					if r1[item] == "Red":
-						gapsG[item] = counts[item]
+						ncollection.update({'name':a['name']},{'$set':{'light':'green'}})
+						timesG[item] = np.ma.array([int(time.asctime().split(" ")[3].split(":")[1]), int(time.asctime().split(" ")[3].split(":")[2])])
+						ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
 					else:
-						gapsR[item] = counts[item]
+						ncollection.update({'name':a['name']},{'$set':{'light':'red'}})
+						timesR[item] = np.ma.array([int(time.asctime().split(" ")[3].split(":")[1]), int(time.asctime().split(" ")[3].split(":")[2])])
+						ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
 					counts[item] = 0
 			r1 = r2
 			r2 = None
-		print gapsR
-		print gapsG
+		print timesR
+		print timesG
 	if on == 1:
 		startRealTime()
 		

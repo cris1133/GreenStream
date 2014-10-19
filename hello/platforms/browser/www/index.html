@@ -23,19 +23,104 @@
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-tap-highlight" content="no" />
         <!-- WARNING: for iOS 7, remove the width=device-width and height=device-height attributes. See https://issues.apache.org/jira/browse/CB-4323 -->
-        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
-        <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi, initial-scale=1" />
+       <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <style type="text/css">
+              html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
+        </style>
+        <link href="../www/css/bootstrap.min.css" type="text/css" rel="stylesheet">
+        <script type="text/javascript"
+              src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDIwzuoyBR_L3eeo5Cg4oCrgr8WCMzRxMs">
+        </script>
+        <script type="text/javascript">
+              function initialize() {
+                navigator.geolocation.getCurrentPosition(onSuccess, onError);
+
+                function onSuccess(position) {
+                    var element = document.getElementById('geolocation');
+                    localStorage.setItem("latitude", position.coords.latitude);
+                    localStorage.setItem("longitude", position.coords.longitude);
+                    element.innerHTML = 'Latitude: '           + position.coords.latitude   + '<br />' +
+                                        'Longitude: '          + position.coords.longitude  + '<br />' ;
+                }
+
+    // onError Callback receives a PositionError object
+    //
+                function onError(error) {
+                    var element = document.getElementById('geolocation');
+                    element.innerHTML = 'code: '+ error.code    + '<br />' +
+                                    'message: ' + error.message + '<br />';
+                    localStorage.setItem("latitude", 40.7903);
+                    localStorage.setItem("longitude", -73.9597);
+                }  
+
+                var start_lat = parseFloat(localStorage.getItem("latitude"));
+                var start_lng = parseFloat(localStorage.getItem("longitude"));
+
+                var mapOptions = {
+                  center: { lat: start_lat, lng: start_lng},
+                  zoom: 13
+                };
+                var map = new google.maps.Map(document.getElementById('map-canvas'),
+                    mapOptions);
+                
+
+                var directionsService = new google.maps.DirectionsService();
+                var directionsDisplay = new google.maps.DirectionsRenderer();
+
+                directionsDisplay.setMap(map);
+
+                var request = {
+                    origin: new google.maps.LatLng(start_lat, start_lng), 
+                    destination: 'Courant Institute',
+                    waypoints: [
+                    {
+                      location: new google.maps.LatLng(40.7903, -73.9597, false),
+                      stopover:false
+                    },],
+                    travelMode: google.maps.DirectionsTravelMode.DRIVING
+                };
+
+                directionsService.route(request, function(response, status) {
+                    if (status == google.maps.DirectionsStatus.OK) {
+                        directionsDisplay.setDirections(response);
+                    }
+                });
+              }
+              google.maps.event.addDomListener(window, 'load', initialize);
+            </script>
+             <!--   <style>
+                    .map {
+                    height: 400px;
+                    width: 100%;
+                }
+                </style>-->
         <title>Hello World</title>
     </head>
     <body>
-        <div class="app">
-            <h1>Apache Cordova</h1>
+<!--       <div class="app">
+           <h1>Yo</h1>
             <div id="deviceready" class="blink">
                 <p class="event listening">Connecting to Device</p>
-                <p class="event received">Device is Ready</p>
+                <p class="event received">Device is Ready</p> 
             </div>
+        </div> -->
+<!--        <script type="text/javascript" src="cordova.js"></script>
+        <script type="text/javascript" src="js/index.js"></script> -->
+<!--        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>-->
+<!--        <script src="js/bootstrap.min.js"></script>-->
+        <form role="form">
+        <div class="form-group">
+            <label for="startPoint">Start</label>
+            <input class="form-control" id="startPoint" placeholder="Starting Location">
         </div>
-        <script type="text/javascript" src="cordova.js"></script>
-        <script type="text/javascript" src="js/index.js"></script>
+        <div class="form-group">
+            <label for="endPoint">End</label>
+            <input class="form-control" id="endPoint" placeholder="Destination">
+        </div>
+        <button class="btn btn-default">Get Directions</button>
+        </form>
+        <div id="geolocation"></div>
+        <div id="map-canvas"></div> 
     </body>
 </html>

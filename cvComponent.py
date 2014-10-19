@@ -4,7 +4,6 @@ import grequests
 import io
 from PIL import Image as Image2
 from socket import error as SocketError
-import errno
 import random
 ## Unpickle needed data
 ## Image(Image2.open(io.BytesIO(images[0].content))).show()
@@ -122,7 +121,7 @@ def startRealTime():
 	r2 = None
 	while on==1:
 		sleep(5)
-		counts = [n+5 for n in counts]
+		counts = [n+15 for n in counts]
 		if r1 == None:
 			r1 = testImages()
 		else:

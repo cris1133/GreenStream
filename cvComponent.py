@@ -106,3 +106,31 @@ def testLines(i1, i2, i3):
 		return "Green"
 	else:
 		return "Red"
+
+def startRealTime():
+	on = 1
+	gapsR = [0 for n in range(135)]
+	gapsG = [0 for n in range(135)]
+	counts = [0 for n in range(135)]
+	r1 = None
+	r2 = None
+	while on==1:
+		sleep(5)
+		counts = [n+5 for n in counts]
+		if r1 == None:
+			r1 = testImages()
+		else:
+			r2 = testImages()
+			for item in range(len(r1)):
+				if r1[item] != r2[item] and r1[item] != "Insufficient Data" and r2[item] != "Insufficient Data":
+					if r1[item] == "Red":
+						gapsG[item] = counts[item]
+					else:
+						gapsR[item] = counts[item]
+					counts[item] = 0
+			r1 = r2
+			r2 = None
+		
+	if on == 1:
+		startRealTime()
+		

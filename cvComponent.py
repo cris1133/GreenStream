@@ -7,10 +7,11 @@ from PIL import Image as Image2
 from socket import error as SocketError
 import random
 from pymongo import MongoClient
-client = MongoClient()
-db = client.test_database
-scollection = db.street_collection
-ncollection = db.node_collection
+#client = MongoClient()
+#db = client.test_database
+#scollection = db.street_collection
+#ncollection = db.node_collection
+
 ## Unpickle needed data
 ## Image(Image2.open(io.BytesIO(images[0].content))).show()
 ## from PIL import Image as Image2
@@ -107,7 +108,7 @@ def genHeaders():
 	ua = ua + str(random.randint(1, 100))
 	ua = ua + str(random.randint(1, 100))
 	ua = ua + str(random.randint(1, 100))
-	sleep(0.001)
+	sleep(0.01)
 	return {'User-Agent':ua}
 def getImages():
 	images = []
@@ -125,10 +126,10 @@ def testImages():
 	results = []
 	i1s = getImages()
 	print "->"
-	sleep(5)
+	sleep(1)
 	i2s = getImages()
 	print "-->"
-	sleep(5)
+	sleep(1)
 	i3s = getImages()
 	print "--->"
 	for img in range(len(i1s)):
@@ -156,21 +157,35 @@ def testLines(i1, i2, i3):
 	if lines == []:
 		return "Insufficient Data"
 	lines.draw()
-	angles = [l.angle() for l in lines]
+	angles = [abs(l.angle()) for l in lines]
 	lengths = [int(l.length()) for l in lines]
+	# Filter out smallest lines
+	average_length = np.mean(lengths)
+	new_lengths = []
+	new_angles = []
+	# Give me only the top 70% of lines
+	# 50 * 1.4 = 70
+	for item in range(len(lengths)):
+		if lengths[item] < average_length*1.4:
+			continue
+		else:
+			new_lengths.append(lengths[item])
+			new_angles.append(angles[item])
+	if sum(new_lengths) == 0:
+		return "Insufficient Data"
 	if sum(lengths) == 0:
 		return "Insufficient Data"
-	anomalies = np.ma.array(angles).anom()
+	anomalies = [(n/np.mean(new_angles))*100 for n in np.ma.array(new_angles).anom()]
 	offset = 0
 	for item in range(len(anomalies)):
-		if abs(anomalies[item-offset]) > 34:
+		if abs(anomalies[item-offset]) > 50:
 			if item-offset in anomalies:
 				offset = offset+1
-				del angles[item-offset]
-				del lengths[item-offset]
-	average = np.average(angles, weights=lengths)
-	average2 = np.mean([average, max([abs(n) for n in angles]) * cmp(max(angles), 0) ])
-	if abs(average2) > 20:
+				del new_angles[item-offset]
+				del new_anlengths[item-offset]
+				print "Filtered Anomaly"
+	average = np.average(new_angles, weights=new_lengths)
+	if abs(average) > 20:
 		return "Green"
 	else:
 		return "Red"
@@ -184,6 +199,8 @@ def startRealTime():
 	on = 1
 	timesR = [0 for n in range(164)]
 	timesG = [0 for n in range(164)]
+	gapsRg = [0 for n in range(164)]
+	gapsGr = [0 for n in range(164)]
 	r1 = None
 	r2 = None
 	curTime = 0
@@ -194,20 +211,20 @@ def startRealTime():
 		else:
 			r2 = testImages()
 			for item in range(len(r1)):
-				a = ncollection.find_one({'on':[r1[0],r1[1]]})
-				if a is None:
-					a= ncollection.find_one({'on':[r1[1],r1[0]]})
-				if a is None:
-					continue
+				#a = ncollection.find_one({'on':[r1[0],r1[1]]})
+				#if a is None:
+				#	a= ncollection.find_one({'on':[r1[1],r1[0]]})
+				#if a is None:
+				#	continue
 				if r1[item] != r2[item] and r1[item] != "Insufficient Data" and r2[item] != "Insufficient Data":
 					if r1[item] == "Red":
-						ncollection.update({'name':a['name']},{'$set':{'light':'green'}})
+						#ncollection.update({'name':a['name']},{'$set':{'light':'green'}})
 						timesG[item] = np.ma.array([int(time.asctime().split(" ")[3].split(":")[1]), int(time.asctime().split(" ")[3].split(":")[2])])
-						ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
+						#ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
 					else:
-						ncollection.update({'name':a['name']},{'$set':{'light':'red'}})
+						#ncollection.update({'name':a['name']},{'$set':{'light':'red'}})
 						timesR[item] = np.ma.array([int(time.asctime().split(" ")[3].split(":")[1]), int(time.asctime().split(" ")[3].split(":")[2])])
-						ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
+						#ncollection.update({'name':a['name']},{'$set':{'dr':calculateTimeGap(timesG[item], timesR[item])}})
 					counts[item] = 0
 			r1 = r2
 			r2 = None
@@ -215,4 +232,3 @@ def startRealTime():
 		print timesG
 	if on == 1:
 		startRealTime()
-		
